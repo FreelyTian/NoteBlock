@@ -2,7 +2,7 @@
 
 #include <cstdint>
 #include <array>
-#include "olc6504.h"
+#include "D6504.h"
 
 
 
@@ -15,7 +15,7 @@ public:
 public:  // Dispositivos conectados ao Bus
 
     // CPU
-    olc6504 cpu;
+    D6504 cpu;
 
     // RAM fake por enquato de 64KB
     std::array<u8, 64 * 1024> ram;
