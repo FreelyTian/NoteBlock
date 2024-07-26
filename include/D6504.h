@@ -3,6 +3,8 @@
 #include <cstdint>
 #include "common.h"
 #include <vector>
+#include "Bus.h"
+#include <string>
 class D6504
 {
 public:
@@ -47,6 +49,7 @@ public:
     u8 IZY();  // Indirect Y
 
     // Opcodes
+    
     u8 ADC();	u8 AND();	u8 ASL();	u8 BCC();
     u8 BCS();	u8 BEQ();	u8 BIT();	u8 BMI();
     u8 BNE();	u8 BPL();	u8 BRK();	u8 BVC();
