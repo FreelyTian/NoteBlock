@@ -233,6 +233,19 @@ u8 D6504::fetch() {
     return fetched;
 };
 
+u8 D6504::ADC() {
+    fetch();
+    u16 temp = (u16)a + (u16)fetched + (u16)GetFlag(C);
+
+    SetFlag(C, temp > 255);
+    SetFlag(Z, (temp & 0x00FF) == 0);
+    SetFlag(N, temp & 0x80);
+    SetFlag(V, (~(u16)a ^ (u16)fetched) & ((u16)a ^ temp) & 0x0080);
+    a = temp & 0x00FF;
+
+    return 1;
+};
+
 u8 D6504::AND() {
     fetch();
     a = a & fetched;
@@ -241,7 +254,7 @@ u8 D6504::AND() {
     return 1;
 }
 
-u8 D6504::BCS() {
+u8 D6504::BCS() {  // Branch if Carry Set
     if (GetFlag(C) == 1) {
         cycles++;
         addr_abs = pc + addr_rel;
@@ -254,4 +267,243 @@ u8 D6504::BCS() {
     };
 
     return 0;
+};
+
+u8 D6504::BCC() {  // Branch if Carry Clear
+    if (GetFlag(C) == 0) {
+        cycles++;
+        addr_abs = pc + addr_rel;
+
+        if ((addr_abs & 0xFF00) != (pc & 0xFF00)) {
+            cycles++;
+        };
+
+        pc = addr_abs;
+    };
+
+    return 0;
+};
+
+u8 D6504::BEQ() {  // Branch if Equal
+    if (GetFlag(Z) == 1) {
+        cycles++;
+        addr_abs = pc + addr_rel;
+
+        if ((addr_abs & 0xFF00) != (pc & 0xFF00)) {
+            cycles++;
+        };
+
+        pc = addr_abs;
+    };
+
+    return 0;
+};
+
+u8 D6504::BNE() {  // Branch if Not Equal
+    if (GetFlag(Z) == 0) {
+        cycles++;
+        addr_abs = pc + addr_rel;
+
+        if ((addr_abs & 0xFF00) != (pc & 0xFF00)) {
+            cycles++;
+        };
+
+        pc = addr_abs;
+    };
+
+    return 0;
+};
+
+u8 D6504::BMI() {  // Branch if Minus
+    if (GetFlag(N) == 1) {
+        cycles++;
+        addr_abs = pc + addr_rel;
+
+        if ((addr_abs & 0xFF00) != (pc & 0xFF00)) {
+            cycles++;
+        };
+
+        pc = addr_abs;
+    };
+
+    return 0;
+};
+
+u8 D6504::BPL() {  // Branch if Positive
+    if (GetFlag(N) == 0) {
+        cycles++;
+        addr_abs = pc + addr_rel;
+
+        if ((addr_abs & 0xFF00) != (pc & 0xFF00)) {
+            cycles++;
+        };
+
+        pc = addr_abs;
+    };
+
+    return 0;
+};
+
+u8 D6504::BVC() {  // Branch if Overflow Clear
+    if (GetFlag(V) == 0) {
+        cycles++;
+        addr_abs = pc + addr_rel;
+
+        if ((addr_abs & 0xFF00) != (pc & 0xFF00)) {
+            cycles++;
+        };
+
+        pc = addr_abs;
+    };
+
+    return 0;
+};
+
+u8 D6504::BVS() {  // Branch if Overflow Set
+    if (GetFlag(V) == 1) {
+        cycles++;
+        addr_abs = pc + addr_rel;
+
+        if ((addr_abs & 0xFF00) != (pc & 0xFF00)) {
+            cycles++;
+        };
+
+        pc = addr_abs;
+    };
+
+    return 0;
+};
+
+u8 D6504::CLC() {  // Clear Carry Flag
+    SetFlag(C, false);
+    return 0;
+};
+
+u8 D6504::CLD() {  // Clear Decimal Mode
+    SetFlag(D, false);
+    return 0;
+};
+
+u8 D6504::CLI() {  // Clear Interrupt Disable
+    SetFlag(I, false);
+    return 0;
+};
+
+u8 D6504::CLV() {  // Clear Overflow Flag
+    SetFlag(V, false);
+    return 0;
+};
+
+u8 D6504::CMP() {  // Compare Accumulator
+    fetch();
+    u16 temp = (u16)a - (u16)fetched;
+    SetFlag(C, a >= fetched);
+    SetFlag(Z, (temp & 0x00FF) == 0x0000);
+    SetFlag(N, temp & 0x0080);
+    return 1;
+};
+
+void D6504::irq() {
+    if (GetFlag(I) == 0) {
+        write(0x0100 + stkp, (pc >> 8) & 0x00FF);
+        stkp--;
+        write(0x0100 + stkp, pc & 0x00FF);
+        stkp--;
+
+        SetFlag(B, 0);
+        SetFlag(U, 1);
+        SetFlag(I, 1);
+        write(0x0100 + stkp, status);
+        stkp--;
+
+        addr_abs = 0xFFFE;
+        u16 lower = read(addr_abs + 0);
+        u16 high = read(addr_abs + 1);
+        pc = (high << 8) | lower;
+
+        cycles = 7;
+    }
+}
+
+void D6504::nmi() {
+    write(0x0100 + stkp, (pc >> 8) & 0x00FF);
+    stkp--;
+    write(0x0100 + stkp, pc & 0x00FF);
+    stkp--;
+
+    SetFlag(B, 0);
+    SetFlag(U, 1);
+    SetFlag(I, 1);
+    write(0x0100 + stkp, status);
+    stkp--;
+
+    addr_abs = 0xFFFA;
+    u16 lower = read(addr_abs + 0);
+    u16 high = read(addr_abs + 1);
+    pc = (high << 8) | lower;
+
+    cycles = 8;
+}
+
+u8 D6504::PHA() {  // Push Accumulator
+    write(0x0100 + stkp, a);
+    stkp--;
+    return 0;
+};
+
+u8 D6504::PLA() {  // Pull Accumulator
+    stkp++;
+    a = read(0x0100 + stkp);
+    SetFlag(Z, a == 0x00);
+    SetFlag(N, a & 0x80);
+    return 0;
+};
+
+void D6504::reset() {
+    a = 0;
+    x = 0;
+    y = 0;
+    stkp = 0xFD;
+    status = 0x00 | U;
+
+    addr_abs = 0xFFFC;
+    u16 lower = read(addr_abs + 0);
+    u16 high = read(addr_abs + 1);
+
+    pc = (high << 8) | lower;
+
+    addr_rel = 0x0000;
+    addr_abs = 0x0000;
+    fetched = 0x00;
+
+    cycles = 8;
+}
+
+u8 D6504::RTI() {  // Return from Interrupt
+    stkp++;
+    status = read(0x0100 + stkp);
+    status &= ~B;
+    status &= ~U;
+
+    stkp++;
+    u16 lower = read(0x0100 + stkp);
+    stkp++;
+    u16 high = read(0x0100 + stkp);
+
+    pc = (high << 8) | lower;
+
+    return 0;
+}
+
+u8 D6504::SBC() {  // Subtract with Carry
+    fetch();
+    u16 value = (u16)fetched ^ 0x00FF;
+    u16 temp = (u16)a + value + (u16)GetFlag(C);
+
+    SetFlag(C, temp & 0xFF00);
+    SetFlag(Z, (temp & 0x00FF) == 0);
+    SetFlag(N, temp & 0x0080);
+    SetFlag(V, (temp ^ (u16)a) & (temp ^ value) & 0x0080);
+    a = temp & 0x00FF;
+    return 1;
 };
